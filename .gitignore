@@ -48,7 +48,7 @@ yarn-error.log*
 __pycache__/
 *.pyc
 
-# 本地工作目录与题库原文件，不进仓库
+# 本地数据与运维文档，不进仓库
 /.workbuddy/
-/CDGA题库导入文件/
-/SurveyKing-部署方案.md
+/CDGA题库/
+/服务器部署/
