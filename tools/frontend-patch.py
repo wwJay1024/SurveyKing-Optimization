@@ -14,10 +14,14 @@
   python tools/frontend-patch.py --jar /path/to/surveyking.jar
 """
 import argparse
+import hashlib
 import os
 import re
 import sys
 import zipfile
+
+STATIC = "BOOT-INF/classes/static/"
+HASHED = re.compile(r"^(.+)\.([0-9a-f]{8})\.(async\.js|chunk\.css)$")
 
 # 1. 答题卡计数：懒加载分支在这里提前返回，finished 从没被算过
 LAZY = ("if(this.lazy)return n=(null===(t=this.schema.children)||void 0===t?void 0:t.length)||1,"
@@ -156,17 +160,62 @@ def patch_jar(jar):
     notes, done, hits = [], [], {}
     zin = zipfile.ZipFile(jar)
     items = zin.infolist()
+    meta = {info.filename: info for info in items}
     payloads = {info.filename: zin.read(info.filename) for info in items}
+
+    changed = []
     for info in items:
-        if not info.filename.endswith((".js", ".css")):
+        name = info.filename
+        if not name.startswith(STATIC) or not name.endswith((".js", ".css")):
             continue
-        text = payloads[info.filename].decode("utf-8")
-        new = apply_to_text(info.filename, text, notes, done, hits)
+        text = payloads[name].decode("utf-8")
+        new = apply_to_text(name, text, notes, done, hits)
         if new != text:
-            payloads[info.filename] = new.encode("utf-8")
-    if not notes:
+            payloads[name] = new.encode("utf-8")
+            changed.append(name)
+
+    if not changed:
         zin.close()
         return notes, done, hits
+
+    # 打包场景要让浏览器丢掉旧缓存：改动过的分包换新文件名，主包里的分包哈希同步更新，
+    # 入口页的版本参数跟着主包内容走。旧文件名的条目保留，仍在用旧主包的浏览器不会炸。
+    renames, extra = [], []
+    for name in changed:
+        hit = HASHED.match(name)
+        if not hit:
+            continue
+        base, old, suffix = hit.groups()
+        new_hash = hashlib.sha1(payloads[name]).hexdigest()[:8]
+        if new_hash == old:
+            continue
+        renames.append((old, new_hash))
+        extra.append(("%s.%s.%s" % (base, new_hash, suffix), name))
+
+    if renames:
+        umi = [n for n in payloads if re.match(r"^" + re.escape(STATIC) + r"umi\.[0-9a-f]{8}\.js$", n)]
+        index = STATIC + "index.html"
+        if not umi or index not in payloads:
+            raise SystemExit("找不到主包或入口页，无法同步缓存版本")
+        text = payloads[umi[0]].decode("utf-8")
+        for old, new_hash in renames:
+            needle = '"%s"' % old
+            if text.count(needle) != 1:
+                raise SystemExit("主包里的分包哈希 %s 出现 %d 次，无法安全替换" % (old, text.count(needle)))
+            text = text.replace(needle, '"%s"' % new_hash)
+        payloads[umi[0]] = text.encode("utf-8")
+
+        html = payloads[index].decode("utf-8")
+        ref = "/" + os.path.basename(umi[0])
+        if ref not in html:
+            raise SystemExit("入口页里找不到主包引用")
+        version = hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
+        if re.search(re.escape(ref) + r"\?b=[0-9A-Za-z]+", html):
+            html = re.sub(re.escape(ref) + r"\?b=[0-9A-Za-z]+", "%s?b=%s" % (ref, version), html)
+        else:
+            html = html.replace(ref, "%s?b=%s" % (ref, version), 1)
+        payloads[index] = html.encode("utf-8")
+
     tmp = jar + ".tmp"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
         for info in items:
@@ -175,6 +224,13 @@ def patch_jar(jar):
             zi.external_attr = info.external_attr
             zi.create_system = info.create_system
             zout.writestr(zi, payloads[info.filename])
+        for renamed, source in extra:
+            src = meta[source]
+            zi = zipfile.ZipInfo(renamed, src.date_time)
+            zi.compress_type = src.compress_type
+            zi.external_attr = src.external_attr
+            zi.create_system = src.create_system
+            zout.writestr(zi, payloads[source])
     zin.close()
     os.replace(tmp, jar)
     return notes, done, hits

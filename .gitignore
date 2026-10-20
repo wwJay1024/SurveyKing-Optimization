@@ -40,3 +40,15 @@ yarn-error.log*
 *.iws
 *.iml
 *.ipr
+
+# 部署工具链与构建产物
+/.toolchain/
+/dist/
+/*.jar
+__pycache__/
+*.pyc
+
+# 本地工作目录与题库原文件，不进仓库
+/.workbuddy/
+/CDGA题库导入文件/
+/SurveyKing-部署方案.md
