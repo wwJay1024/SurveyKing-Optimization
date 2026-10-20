@@ -109,6 +109,9 @@ def main():
     ap.add_argument("--work", default=os.path.join(ROOT, "build"))
     args = ap.parse_args()
 
+    # 子进程的输出是行缓冲，自己的输出在管道里是块缓冲，不统一会导致日志顺序错乱
+    sys.stdout.reconfigure(line_buffering=True)
+
     base, out, work = (os.path.abspath(p) for p in (args.base, args.out, args.work))
     lombok = os.path.abspath(args.lombok)
     jdk = find_jdk(args.jdk)
