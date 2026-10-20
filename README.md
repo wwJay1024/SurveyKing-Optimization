@@ -40,6 +40,15 @@
 
 > **Own the workflow and the data.** SurveyKing brings content creation, publishing, responses, grading, practice, analytics, users, and permissions into one deployable system. Start with the embedded H2 database, then move to MySQL when you are ready for production.
 
+## Customizations in this fork
+
+Two changes on top of upstream:
+
+- **Role-based question-bank authorization** — authorize question banks by role from System Management → Role Management. The backend part is new source in the upstream package layout, plus a standalone management page.
+- **Practice answer sheet** — the answer sheet in practice mode now counts answered questions correctly and tells right from wrong on mobile.
+
+Upstream publishes the backend source only, the frontend ships as build artifacts, so the frontend change is a targeted replacement on those artifacts. See [docs/优化说明.md](docs/优化说明.md) for the affected files, the reasoning, and how to replay the patch on a newer upstream release.
+
 ## Get running in a minute
 
 Start SurveyKing with Docker and the built-in H2 database:

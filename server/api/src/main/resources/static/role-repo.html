@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>角色题库授权</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    color: #1f2329;
+    background: #f0f2f5;
+  }
+  header {
+    height: 56px;
+    background: #fff;
+    border-bottom: 1px solid #e8eaed;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 16px; font-weight: 600; margin: 0; }
+  header .hint { color: #8b929c; font-size: 13px; }
+  header .back {
+    margin-left: auto;
+    color: #1677ff;
+    text-decoration: none;
+    font-size: 13px;
+  }
+  header .back:hover { text-decoration: underline; }
+
+  main {
+    display: flex;
+    gap: 16px;
+    padding: 16px 20px 24px;
+    align-items: flex-start;
+  }
+  .panel {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #e8eaed;
+    overflow: hidden;
+  }
+  .panel-title {
+    padding: 12px 16px;
+    font-weight: 600;
+    border-bottom: 1px solid #f0f1f3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-title .n { color: #8b929c; font-weight: 400; font-size: 13px; }
+
+  .roles { width: 280px; flex: none; }
+  .roles ul { list-style: none; margin: 0; padding: 4px; max-height: calc(100vh - 320px); overflow: auto; }
+  .roles li {
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .roles li:hover { background: #f5f7fa; }
+  .roles li.active { background: #e8f1ff; border-left-color: #1677ff; }
+  .roles .name { font-weight: 600; }
+  .roles li.active .name { color: #1677ff; }
+  .roles .meta {
+    color: #8b929c;
+    font-size: 12px;
+    margin-top: 3px;
+    display: flex;
+    gap: 8px;
+  }
+  .roles .granted { color: #0f8a4d; }
+  .roles .granted.zero { color: #b0b6bd; }
+  .role-actions { border-top: 1px solid #f0f1f3; padding: 12px 16px; }
+  .role-actions button { width: 100%; }
+  .role-actions p { margin: 8px 0 0; color: #8b929c; font-size: 12px; line-height: 1.5; }
+
+  .repos { flex: 1; min-width: 0; }
+  .toolbar {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #f0f1f3;
+  }
+  input[type="search"] {
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid #d9dde3;
+    border-radius: 6px;
+    font-size: 13px;
+    width: 220px;
+    outline: none;
+  }
+  input[type="search"]:focus { border-color: #1677ff; }
+
+  .seg { display: flex; border: 1px solid #d9dde3; border-radius: 6px; overflow: hidden; }
+  .seg button {
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    padding: 0 12px;
+    height: 30px;
+    color: #5c6570;
+    border-right: 1px solid #e8eaed;
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: #1677ff; color: #fff; }
+  .seg button b { font-weight: 600; margin-left: 4px; }
+  .seg button.on b { color: #fff; }
+  .seg button:hover:not(.on) { color: #1677ff; }
+
+  .summary { color: #8b929c; font-size: 13px; }
+  .summary b { font-weight: 600; color: #1f2329; }
+  .summary b.add { color: #1677ff; }
+  .summary b.del { color: #d92d20; }
+
+  button {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 6px;
+    border: 1px solid #d9dde3;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    color: #1f2329;
+  }
+  button:hover:not(:disabled) { border-color: #1677ff; color: #1677ff; }
+  button.primary { background: #1677ff; border-color: #1677ff; color: #fff; }
+  button.primary:hover:not(:disabled) { background: #4096ff; border-color: #4096ff; color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .spacer { flex: 1; }
+
+  .list-wrap { max-height: calc(100vh - 340px); overflow: auto; }
+  table { width: 100%; min-width: 600px; border-collapse: collapse; table-layout: fixed; }
+  th:nth-child(1), td:nth-child(1) { width: 44px; }
+  th:nth-child(3), td:nth-child(3) { width: 96px; }
+  th:nth-child(4), td:nth-child(4) { width: 150px; }
+  thead th {
+    text-align: left;
+    font-weight: 500;
+    color: #8b929c;
+    font-size: 13px;
+    padding: 10px 16px;
+    background: #fafbfc;
+    border-bottom: 1px solid #f0f1f3;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  tbody td { padding: 10px 16px; border-bottom: 1px solid #f5f6f7; vertical-align: middle; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #fafbfc; }
+  tbody tr.pending { background: #f5f9ff; }
+  tbody tr.pending:hover { background: #eef5ff; }
+  tbody tr.pending td:first-child { box-shadow: inset 3px 0 0 #1677ff; }
+  tbody tr.pending.del td:first-child { box-shadow: inset 3px 0 0 #d92d20; }
+
+  .rname { font-weight: 500; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .rname .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag {
+    display: inline-block;
+    flex: none;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    background: #f0f1f3;
+    color: #5c6570;
+  }
+  .tag.practice { background: #e9f8f0; color: #0f8a4d; }
+
+  .state {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .state.on { background: #e9f8f0; color: #0f8a4d; }
+  .state.off { background: #f2f3f5; color: #8b929c; }
+  .state.adding { background: #e8f1ff; color: #1677ff; }
+  .state.removing { background: #fdeceb; color: #d92d20; }
+
+  .actionbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-top: 1px solid #f0f1f3;
+    background: #fff;
+  }
+  .actionbar .tip { color: #8b929c; font-size: 13px; }
+
+  .empty { padding: 48px 16px; text-align: center; color: #8b929c; line-height: 1.8; }
+  .empty a { color: #1677ff; cursor: pointer; text-decoration: none; }
+
+  #toast {
+    position: fixed;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #1f2329;
+    color: #fff;
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+    z-index: 99;
+  }
+  #toast.show { opacity: 1; }
+  #toast.err { background: #d92d20; }
+  #toast.ok { background: #0f8a4d; }
+
+  input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #1677ff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>角色题库授权</h1>
+  <span class="hint">选角色 → 勾选题库 → 保存</span>
+  <a class="back" href="/">返回系统</a>
+</header>
+
+<main>
+  <aside class="panel roles">
+    <div class="panel-title">角色 <span class="n" id="roleCount"></span></div>
+    <ul id="roleList"><li class="empty">加载中…</li></ul>
+    <div class="role-actions">
+      <button id="syncBtn" disabled>同步成员到题库</button>
+      <p>角色新增成员后点一次，把新人补进这个角色已授权的题库。</p>
+    </div>
+  </aside>
+
+  <section class="panel repos">
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="搜索题库名称" disabled>
+      <div class="seg" id="segFilter">
+        <button data-filter="all" class="on">全部<b id="cntAll">0</b></button>
+        <button data-filter="on">已授权<b id="cntOn">0</b></button>
+        <button data-filter="off">未授权<b id="cntOff">0</b></button>
+      </div>
+      <span class="spacer"></span>
+      <span class="summary" id="summary"></span>
+    </div>
+    <div class="list-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="checkAll" disabled></th>
+            <th>题库</th>
+            <th>状态</th>
+            <th>创建时间</th>
+          </tr>
+        </thead>
+        <tbody id="repoBody">
+          <tr><td colspan="4" class="empty">请先在左侧选择一个角色</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="actionbar">
+      <span class="tip" id="actionTip">勾选不会立即生效，点「保存变更」才会提交</span>
+      <span class="spacer"></span>
+      <button id="revertBtn" disabled>放弃修改</button>
+      <button id="saveBtn" class="primary" disabled>保存变更</button>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  function api(path, options) {
+    options = options || {};
+    options.credentials = 'same-origin';
+    if (options.body) {
+      options.headers = { 'Content-Type': 'application/json;charset=UTF-8' };
+      options.body = JSON.stringify(options.body);
+    }
+    return fetch(path, options).then(function (res) {
+      return res.json().catch(function () {
+        throw new Error('服务返回了非 JSON 内容，可能是登录已失效');
+      }).then(function (json) {
+        if (json.code !== 200 && json.code !== 0) {
+          throw new Error(json.message || ('请求失败(' + json.code + ')'));
+        }
+        return json.data;
+      });
+    });
+  }
+
+  var toastTimer = null;
+  function toast(msg, type) {
+    var node = document.getElementById('toast');
+    node.textContent = msg;
+    node.className = 'show ' + (type || '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { node.className = ''; }, 2600);
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function fmtDate(v) {
+    if (!v) return '';
+    var d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  var state = {
+    roles: [],
+    counts: {},
+    roleId: null,
+    items: [],
+    picked: {},
+    keyword: '',
+    filter: 'all',
+    loading: false
+  };
+
+  var el = {
+    roleList: document.getElementById('roleList'),
+    roleCount: document.getElementById('roleCount'),
+    repoBody: document.getElementById('repoBody'),
+    search: document.getElementById('search'),
+    segFilter: document.getElementById('segFilter'),
+    checkAll: document.getElementById('checkAll'),
+    summary: document.getElementById('summary'),
+    saveBtn: document.getElementById('saveBtn'),
+    revertBtn: document.getElementById('revertBtn'),
+    syncBtn: document.getElementById('syncBtn'),
+    actionTip: document.getElementById('actionTip'),
+    cntAll: document.getElementById('cntAll'),
+    cntOn: document.getElementById('cntOn'),
+    cntOff: document.getElementById('cntOff')
+  };
+
+  // 已授权 / 未授权 是服务端的真实状态；待授权 / 待撤销 表示勾选和真实状态不一致、还没提交。
+  function statusOf(item) {
+    var now = !!item.granted;
+    var want = !!state.picked[item.id];
+    if (now === want) return now ? { key: 'on', text: '已授权' } : { key: 'off', text: '未授权' };
+    return want ? { key: 'adding', text: '待授权' } : { key: 'removing', text: '待撤销' };
+  }
+
+  function stats() {
+    var on = 0, adding = 0, removing = 0;
+    state.items.forEach(function (it) {
+      var now = !!it.granted, want = !!state.picked[it.id];
+      if (now) on++;
+      if (!now && want) adding++;
+      if (now && !want) removing++;
+    });
+    return { on: on, adding: adding, removing: removing, total: state.items.length };
+  }
+
+  function filtered() {
+    var kw = state.keyword.toLowerCase();
+    return state.items.filter(function (it) {
+      if (kw && (it.name || '').toLowerCase().indexOf(kw) === -1) return false;
+      if (state.filter === 'on' && !it.granted) return false;
+      if (state.filter === 'off' && it.granted) return false;
+      return true;
+    });
+  }
+
+  function renderRoles() {
+    el.roleCount.textContent = state.roles.length + ' 个';
+    if (!state.roles.length) {
+      el.roleList.innerHTML = '<li class="empty">系统里还没有角色</li>';
+      return;
+    }
+    el.roleList.innerHTML = state.roles.map(function (r) {
+      var n = state.counts[r.id] || 0;
+      return '<li data-id="' + r.id + '" class="' + (r.id === state.roleId ? 'active' : '') + '">' +
+        '<div class="name">' + escapeHtml(r.name) + '</div>' +
+        '<div class="meta"><span>' + escapeHtml(r.code || '') + '</span>' +
+        '<span class="granted' + (n === 0 ? ' zero' : '') + '">' + n + ' 个题库</span></div>' +
+        '</li>';
+    }).join('');
+    Array.prototype.forEach.call(el.roleList.querySelectorAll('li[data-id]'), function (li) {
+      li.addEventListener('click', function () { selectRole(li.getAttribute('data-id')); });
+    });
+  }
+
+  function renderSummary() {
+    var s = stats();
+    el.cntAll.textContent = s.total;
+    el.cntOn.textContent = s.on;
+    el.cntOff.textContent = s.total - s.on;
+
+    if (!state.roleId) {
+      el.summary.innerHTML = '';
+      return;
+    }
+    if (!s.adding && !s.removing) {
+      el.summary.innerHTML = '已授权 <b>' + s.on + '</b> / ' + s.total + ' 个题库';
+    } else {
+      var parts = ['已授权 <b>' + s.on + '</b>'];
+      if (s.adding) parts.push('待新增 <b class="add">' + s.adding + '</b>');
+      if (s.removing) parts.push('待撤销 <b class="del">' + s.removing + '</b>');
+      el.summary.innerHTML = parts.join(' · ');
+    }
+  }
+
+  function renderTable() {
+    var list = filtered();
+    var s = stats();
+    var changed = s.adding + s.removing;
+
+    if (!state.roleId) {
+      el.repoBody.innerHTML = '<tr><td colspan="4" class="empty">请先在左侧选择一个角色</td></tr>';
+      el.search.disabled = true;
+      el.checkAll.disabled = true;
+      el.saveBtn.disabled = true;
+      el.revertBtn.disabled = true;
+      el.syncBtn.disabled = true;
+      el.checkAll.checked = false;
+      el.saveBtn.textContent = '保存变更';
+      return;
+    }
+
+    if (!list.length) {
+      var msg = state.keyword
+        ? '没有匹配「' + escapeHtml(state.keyword) + '」的题库'
+        : (state.filter === 'on' ? '这个角色还没有授权任何题库' : '没有符合条件的题库');
+      var action = (state.filter === 'on' || state.keyword) ? '，<a data-act="all">看全部题库</a>' : '';
+      el.repoBody.innerHTML = '<tr><td colspan="4" class="empty">' + msg + action + '</td></tr>';
+      var link = el.repoBody.querySelector('a[data-act="all"]');
+      if (link) link.addEventListener('click', function () {
+        el.search.value = '';
+        state.keyword = '';
+        setFilter('all');
+      });
+    } else {
+      el.repoBody.innerHTML = list.map(function (it) {
+        var st = statusOf(it);
+        var pending = st.key === 'adding' || st.key === 'removing';
+        var modeTag = it.isPractice ? '<span class="tag practice">练习</span>' : '';
+        return '<tr data-id="' + it.id + '" class="' + (pending ? 'pending ' + (st.key === 'removing' ? 'del' : '') : '') + '">' +
+          '<td><input type="checkbox" ' + (state.picked[it.id] ? 'checked' : '') + '></td>' +
+          '<td><div class="rname"><span class="title">' + escapeHtml(it.name) + '</span>' + modeTag + '</div>' +
+            (it.description ? '<div style="color:#8b929c;font-size:12px;margin-top:2px">' + escapeHtml(it.description) + '</div>' : '') +
+          '</td>' +
+          '<td><span class="state ' + st.key + '">' + st.text + '</span></td>' +
+          '<td style="color:#8b929c;font-size:13px">' + fmtDate(it.createAt) + '</td>' +
+          '</tr>';
+      }).join('');
+      Array.prototype.forEach.call(el.repoBody.querySelectorAll('tr[data-id]'), function (tr) {
+        var id = tr.getAttribute('data-id');
+        function toggle() {
+          state.picked[id] = !state.picked[id];
+          renderTable();
+          renderSummary();
+        }
+        tr.addEventListener('click', function (e) {
+          if (e.target.tagName === 'INPUT') return;
+          toggle();
+        });
+        tr.querySelector('input').addEventListener('change', toggle);
+      });
+    }
+
+    var visiblePicked = list.filter(function (it) { return state.picked[it.id]; }).length;
+    el.search.disabled = false;
+    el.checkAll.disabled = list.length === 0;
+    el.checkAll.checked = list.length > 0 && visiblePicked === list.length;
+    el.checkAll.indeterminate = visiblePicked > 0 && visiblePicked < list.length;
+    el.syncBtn.disabled = false;
+
+    el.saveBtn.disabled = changed === 0;
+    el.saveBtn.textContent = changed > 0 ? '保存变更（' + changed + '）' : '保存变更';
+    el.revertBtn.disabled = changed === 0;
+    el.actionTip.textContent = changed > 0
+      ? '有 ' + changed + ' 处改动未提交'
+      : '勾选不会立即生效，点「保存变更」才会提交';
+  }
+
+  function setFilter(f) {
+    state.filter = f;
+    Array.prototype.forEach.call(el.segFilter.querySelectorAll('button'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-filter') === f);
+    });
+    renderTable();
+  }
+
+  function render() {
+    renderRoles();
+    renderTable();
+    renderSummary();
+  }
+
+  function loadCounts() {
+    return api('/api/system/role/repo/counts').then(function (data) {
+      state.counts = data || {};
+    }).catch(function () {
+      state.counts = {};
+    });
+  }
+
+  function selectRole(roleId) {
+    if (state.loading) return;
+    state.roleId = roleId;
+    state.keyword = '';
+    state.filter = 'all';
+    el.search.value = '';
+    Array.prototype.forEach.call(el.segFilter.querySelectorAll('button'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-filter') === 'all');
+    });
+    renderRoles();
+    el.repoBody.innerHTML = '<tr><td colspan="4" class="empty">加载中…</td></tr>';
+    state.loading = true;
+    api('/api/system/role/repo?roleId=' + encodeURIComponent(roleId)).then(function (data) {
+      state.items = (data && data.items) || [];
+      state.picked = {};
+      state.items.forEach(function (it) { state.picked[it.id] = !!it.granted; });
+      state.loading = false;
+      render();
+    }).catch(function (err) {
+      state.items = [];
+      state.picked = {};
+      state.loading = false;
+      el.repoBody.innerHTML = '<tr><td colspan="4" class="empty">' + escapeHtml(err.message) + '</td></tr>';
+    });
+  }
+
+  function loadRoles() {
+    api('/api/system/role/list?current=1&pageSize=200').then(function (data) {
+      state.roles = (data && data.list) || [];
+      return loadCounts().then(function () {
+        renderRoles();
+        if (state.roles.length) selectRole(state.roles[0].id);
+      });
+    }).catch(function (err) {
+      el.roleList.innerHTML = '<li class="empty">' + escapeHtml(err.message) + '</li>';
+    });
+  }
+
+  el.search.addEventListener('input', function () {
+    state.keyword = el.search.value.trim();
+    renderTable();
+  });
+
+  el.segFilter.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('button[data-filter]') : null;
+    if (btn) setFilter(btn.getAttribute('data-filter'));
+  });
+
+  el.checkAll.addEventListener('change', function () {
+    var on = el.checkAll.checked;
+    filtered().forEach(function (it) { state.picked[it.id] = on; });
+    renderTable();
+    renderSummary();
+  });
+
+  el.revertBtn.addEventListener('click', function () {
+    state.items.forEach(function (it) { state.picked[it.id] = !!it.granted; });
+    renderTable();
+    renderSummary();
+    toast('已恢复到上次保存的状态');
+  });
+
+  el.saveBtn.addEventListener('click', function () {
+    if (!state.roleId) return;
+    var s = stats();
+    if (s.removing > 0) {
+      var ok = confirm('本次会撤销 ' + s.removing + ' 个题库的授权，该角色的成员将看不到这些题库。确定保存？');
+      if (!ok) return;
+    }
+    var ids = state.items.filter(function (it) { return state.picked[it.id]; }).map(function (it) { return it.id; });
+    el.saveBtn.disabled = true;
+    el.saveBtn.textContent = '保存中…';
+    api('/api/system/role/repo/save', {
+      method: 'POST',
+      body: { roleId: state.roleId, repoIds: ids }
+    }).then(function () {
+      // 以服务端返回的状态为准，不依赖本地推算
+      return api('/api/system/role/repo?roleId=' + encodeURIComponent(state.roleId));
+    }).then(function (data) {
+      state.items = (data && data.items) || [];
+      state.picked = {};
+      state.items.forEach(function (it) { state.picked[it.id] = !!it.granted; });
+      return loadCounts().then(function () {
+        render();
+        var parts = [];
+        if (s.adding) parts.push('新增 ' + s.adding + ' 个');
+        if (s.removing) parts.push('撤销 ' + s.removing + ' 个');
+        toast(parts.length ? '已保存：' + parts.join('，') : '已保存', 'ok');
+      });
+    }).catch(function (err) {
+      renderTable();
+      toast(err.message, 'err');
+    });
+  });
+
+  el.syncBtn.addEventListener('click', function () {
+    if (!state.roleId) return;
+    el.syncBtn.disabled = true;
+    api('/api/system/role/repo/sync?roleId=' + encodeURIComponent(state.roleId), { method: 'POST' })
+      .then(function () { toast('已把这个角色的成员补进已授权的题库', 'ok'); })
+      .catch(function (err) { toast(err.message, 'err'); })
+      .then(function () { el.syncBtn.disabled = false; });
+  });
+
+  loadRoles();
+})();
+</script>
+</body>
+</html>

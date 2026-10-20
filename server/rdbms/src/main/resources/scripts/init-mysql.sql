@@ -327,6 +327,28 @@ BEGIN;
 COMMIT;
 
 -- ----------------------------
+-- Table structure for t_role_repo
+-- ----------------------------
+DROP TABLE IF EXISTS `t_role_repo`;
+CREATE TABLE `t_role_repo` (
+  `id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `role_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '角色id',
+  `repo_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '题库id',
+  `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `create_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `update_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `update_by` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `is_deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_t_role_repo_role` (`role_id`),
+  KEY `idx_t_role_repo_repo` (`repo_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='角色题库授权';
+
+-- ----------------------------
+-- Records of t_role_repo
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for t_repo_template
 -- ----------------------------
 DROP TABLE IF EXISTS `t_repo_template`;
